@@ -1,11 +1,11 @@
 extends Node2D
 
 var cell_size: float = 40.0
-var max_density: int = 8        # fully red at this count
+var max_density: int = 8
 var enabled: bool    = true
 
 func _process(_delta: float) -> void:
-	queue_redraw()   # trigger _draw every frame
+	queue_redraw()
 
 func _draw() -> void:
 	if not enabled:
@@ -15,7 +15,6 @@ func _draw() -> void:
 		if count == 0:
 			continue
 		var t: float   = clamp(float(count) / float(max_density), 0.0, 1.0)
-		# Interpolate green → yellow → red
 		var col: Color = Color(t, 1.0 - t, 0.0, 0.35)
 		var rect = Rect2(
 			Vector2(cell_vec.x * cell_size, cell_vec.y * cell_size),

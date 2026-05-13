@@ -24,6 +24,10 @@ Manager="*uid://cq8l58j8rormg"
 window/size/viewport_width=1920
 window/size/viewport_height=1080
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg")
+
 [input]
 
 ui_scroll_up={

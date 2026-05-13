@@ -1,26 +1,24 @@
 [gd_scene format=3 uid="uid://g34u0nva7wpr"]
 
 [ext_resource type="Script" uid="uid://8upnnxy8wpjy" path="res://scripts/HeatMap.gd" id="1_elqb8"]
-[ext_resource type="Script" uid="uid://cq8l58j8rormg" path="res://scripts/Manager.gd" id="1_rvslj"]
 [ext_resource type="Script" uid="uid://buhfy5ohs5odx" path="res://scripts/UI.gd" id="3_0bbpv"]
 [ext_resource type="PackedScene" uid="uid://dn8jxjwgh640d" path="res://scenes/Floor_0.tscn" id="3_vcsgt"]
 [ext_resource type="PackedScene" uid="uid://d3lvbt7ruxu60" path="res://scenes/Floor_1.tscn" id="4_c01mt"]
 
 [node name="Main" type="Node2D" unique_id=455772813]
 
-[node name="Manager" type="Node" parent="." unique_id=218583746]
-script = ExtResource("1_rvslj")
-
-[node name="HeatMapCanvas" type="Node2D" parent="." unique_id=414072212]
-script = ExtResource("1_elqb8")
-
 [node name="Floors" type="Node2D" parent="." unique_id=1402324463]
 
 [node name="Floor" parent="Floors" unique_id=1584161637 instance=ExtResource("3_vcsgt")]
+occupancy = 200
 
 [node name="Floor2" parent="Floors" unique_id=400473768 instance=ExtResource("4_c01mt")]
 position = Vector2(0, 1200)
 floor_index = 1
+occupancy = 200
+
+[node name="HeatMapCanvas" type="Node2D" parent="." unique_id=414072212]
+script = ExtResource("1_elqb8")
 
 [node name="UI" type="Node" parent="." unique_id=198621958]
 
@@ -28,21 +26,29 @@ floor_index = 1
 script = ExtResource("3_0bbpv")
 
 [node name="Label_Timer" type="Label" parent="UI/CanvasLayer" unique_id=1564972573]
-offset_right = 40.0
-offset_bottom = 23.0
+offset_left = 20.0
+offset_top = 50.0
+offset_right = 60.0
+offset_bottom = 73.0
 
 [node name="Label_Escaped" type="Label" parent="UI/CanvasLayer" unique_id=1769375156]
-offset_right = 40.0
-offset_bottom = 23.0
+offset_left = 20.0
+offset_top = 80.0
+offset_right = 60.0
+offset_bottom = 103.0
 
 [node name="Label_Scenario" type="Label" parent="UI/CanvasLayer" unique_id=549648788]
-offset_right = 40.0
-offset_bottom = 23.0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 60.0
+offset_bottom = 43.0
 
 [node name="Button_Start" type="Button" parent="UI/CanvasLayer" unique_id=2119145621]
-offset_right = 8.0
-offset_bottom = 8.0
+offset_left = 20.0
+offset_top = 120.0
+offset_right = 70.0
+offset_bottom = 170.0
 
-[node name="Camera2D" type="Camera2D" parent="." unique_id=815485518]
-drag_horizontal_enabled = true
-drag_vertical_enabled = true
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1676030965]
+position = Vector2(967, 1181)
+zoom = Vector2(0.5, 0.5)
