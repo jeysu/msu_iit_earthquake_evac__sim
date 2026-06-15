@@ -1,0 +1,85 @@
+[gd_scene format=3 uid="uid://d0aj3ly6isiyj"]
+
+[ext_resource type="PackedScene" uid="uid://cf0pg6ruphwk0" path="res://scenes/Floor.tscn" id="1_uhu3w"]
+[ext_resource type="Texture2D" uid="uid://bqxw6c6aqo2pi" path="res://assets/CASS bldg-3.jpg" id="2_i0xu8"]
+[ext_resource type="Script" uid="uid://d0dhfmuo46owj" path="res://scripts/StairConnector.gd" id="3_2on63"]
+
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_i0xu8"]
+vertices = PackedVector2Array(567.9297, 129.95313, 357.90625, 130.9375, 359.90625, 108, 703.2578, 27.882813, 729.59375, 17.039063, 746.71094, 58.109375, 701.28125, 74.21875, 693.96094, 65.27344, 660.6094, 30.429688, 659.59375, 54.976563, 643.85156, 62.398438, 112, 55.976563, 646.8594, 277, 568.9297, 277, 301, 108, 112, 128.09375, 301, 129.89844)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2), PackedInt32Array(3, 4, 5, 6, 7), PackedInt32Array(8, 3, 7, 9), PackedInt32Array(9, 7, 10), PackedInt32Array(11, 9, 10), PackedInt32Array(10, 12, 13, 0), PackedInt32Array(11, 10, 0, 2), PackedInt32Array(11, 2, 14), PackedInt32Array(15, 11, 14, 16)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(735, 4, 701, 18, 651, 21, 650, 45, 102, 46, 102, 138, 311, 140, 311, 118, 349, 118, 347, 141, 558, 140, 559, 287, 657, 287, 654, 73, 689, 75, 698, 86, 760, 64)])
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_2on63"]
+size = Vector2(16.5, 24)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_4ucqn"]
+size = Vector2(37, 21)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_q06n5"]
+size = Vector2(37, 21)
+
+[node name="Floor" unique_id=1584161637 instance=ExtResource("1_uhu3w")]
+
+[node name="Sprite2D" parent="." index="0" unique_id=1331275016]
+position = Vector2(956.99994, 544.00006)
+scale = Vector2(0.4, 0.4)
+texture = ExtResource("2_i0xu8")
+
+[node name="NavigationRegion2D" parent="." index="1" unique_id=435981806]
+position = Vector2(628, 512)
+navigation_polygon = SubResource("NavigationPolygon_i0xu8")
+
+[node name="Stair_5" type="Area2D" parent="StairConnectors" parent_id_path=PackedInt32Array(1737691285) index="0" unique_id=1013292233]
+script = ExtResource("3_2on63")
+destination_floor = 1
+destination_stair_name = "Stair_5"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="StairConnectors/Stair_5" index="0" unique_id=1382853624]
+position = Vector2(949.75, 601)
+shape = SubResource("RectangleShape2D_2on63")
+
+[node name="Stair_6" type="Area2D" parent="StairConnectors" parent_id_path=PackedInt32Array(1737691285) index="1" unique_id=1978886919]
+script = ExtResource("3_2on63")
+destination_floor = 1
+destination_stair_name = "Stair_6"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="StairConnectors/Stair_6" index="0" unique_id=1504712680]
+position = Vector2(1298.5, 550.5)
+shape = SubResource("RectangleShape2D_4ucqn")
+
+[node name="Stair_7" type="Area2D" parent="StairConnectors" parent_id_path=PackedInt32Array(1737691285) index="2" unique_id=723391609]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="StairConnectors/Stair_7" index="0" unique_id=381284609]
+position = Vector2(1353, 541)
+rotation = -0.27079767
+shape = SubResource("RectangleShape2D_q06n5")
+
+[node name="WP_1" type="Marker2D" parent="WanderPoints" parent_id_path=PackedInt32Array(715812298) index="0" unique_id=1896177452]
+position = Vector2(772, 612)
+
+[node name="WP_2" type="Marker2D" parent="WanderPoints" parent_id_path=PackedInt32Array(715812298) index="1" unique_id=778342333]
+position = Vector2(837, 621)
+
+[node name="WP_3" type="Marker2D" parent="WanderPoints" parent_id_path=PackedInt32Array(715812298) index="2" unique_id=1361192041]
+position = Vector2(880, 622)
+
+[node name="WP_4" type="Marker2D" parent="WanderPoints" parent_id_path=PackedInt32Array(715812298) index="3" unique_id=1925727457]
+position = Vector2(915, 620)
+
+[node name="WP_5" type="Marker2D" parent="WanderPoints" parent_id_path=PackedInt32Array(715812298) index="4" unique_id=331125759]
+position = Vector2(1039, 620)
+
+[node name="WP_6" type="Marker2D" parent="WanderPoints" parent_id_path=PackedInt32Array(715812298) index="5" unique_id=1453381678]
+position = Vector2(1084, 618)
+
+[node name="WP_7" type="Marker2D" parent="WanderPoints" parent_id_path=PackedInt32Array(715812298) index="6" unique_id=695806394]
+position = Vector2(1129, 618)
+
+[node name="WP_8" type="Marker2D" parent="WanderPoints" parent_id_path=PackedInt32Array(715812298) index="7" unique_id=873683465]
+position = Vector2(1175, 617)
+
+[node name="WP_9" type="Marker2D" parent="WanderPoints" parent_id_path=PackedInt32Array(715812298) index="8" unique_id=1531825547]
+position = Vector2(1243, 617)
+
+[node name="WP_10" type="Marker2D" parent="WanderPoints" parent_id_path=PackedInt32Array(715812298) index="9" unique_id=558560337]
+position = Vector2(1247, 693)
