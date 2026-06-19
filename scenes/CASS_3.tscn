@@ -5,12 +5,13 @@
 [ext_resource type="Script" uid="uid://d0dhfmuo46owj" path="res://scripts/StairConnector.gd" id="3_8ddvi"]
 
 [sub_resource type="NavigationPolygon" id="NavigationPolygon_8ddvi"]
-vertices = PackedVector2Array(1316.7969, 528.3906, 1330.3516, 566.3203, 1288.2891, 583.28125, 1286.1406, 573.25, 1279.7578, 539.9219, 1235.8672, 571.6797, 1246.5391, 562.9297, 1156, 639.4922, 1116.1016, 641.47656, 1116.8906, 563.9219, 1238.8672, 816.89844, 1156, 816.09375, 1247.5469, 541.53125)
-polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3, 4), PackedInt32Array(4, 3, 5, 6), PackedInt32Array(7, 8, 9, 5), PackedInt32Array(5, 10, 11, 7), PackedInt32Array(5, 9, 6), PackedInt32Array(4, 6, 12)])
-outlines = Array[PackedVector2Array]([PackedVector2Array(1323, 516, 1278, 530, 1238, 532, 1237, 553, 1107, 554, 1106, 652, 1146, 650, 1146, 826, 1249, 827, 1246, 582, 1278, 583, 1281, 597, 1343, 572)])
+vertices = PackedVector2Array(1331.2578, 549.84375, 1339.1406, 570.3203, 1283.1797, 592.8828, 1280.4375, 580.0703, 1298.6094, 561.96875, 1274.1172, 563.1406, 1242.9609, 578.89844, 1245.9609, 823.96875, 1149, 823.02344, 1149, 647.0703, 1240, 558.97656, 1240, 538, 1273.1172, 538, 1109.0313, 646.0703, 1109.9609, 559.96875)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3, 4), PackedInt32Array(5, 4, 3, 6), PackedInt32Array(6, 7, 8, 9, 10), PackedInt32Array(10, 11, 12, 5, 6), PackedInt32Array(9, 13, 14, 10)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(1333, 546, 1298, 559, 1277, 560, 1276, 535, 1237, 535, 1237, 556, 1107, 557, 1106, 649, 1146, 650, 1146, 826, 1249, 827, 1246, 582, 1278, 583, 1281, 597, 1343, 572)])
+agent_radius = 3.0
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_omu25"]
-size = Vector2(35, 20)
+size = Vector2(28, 14)
 
 [node name="Floor" unique_id=1584161637 instance=ExtResource("1_tfl0n")]
 
@@ -28,11 +29,14 @@ destination_floor = 2
 destination_stair_name = "Stair_7"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="StairConnectors/Stair_7" index="0" unique_id=1433884029]
-position = Vector2(1257.5, 547)
+position = Vector2(1257, 548)
 shape = SubResource("RectangleShape2D_omu25")
 
 [node name="WP_1" type="Marker2D" parent="WanderPoints" parent_id_path=PackedInt32Array(715812298) index="0" unique_id=1831249333]
-position = Vector2(1195, 699)
+position = Vector2(1198, 793)
 
 [node name="WP_2" type="Marker2D" parent="WanderPoints" parent_id_path=PackedInt32Array(715812298) index="1" unique_id=631025389]
 position = Vector2(1313, 571)
+
+[node name="WP_3" type="Marker2D" parent="WanderPoints" parent_id_path=PackedInt32Array(715812298) index="2" unique_id=489358957]
+position = Vector2(1140, 597)

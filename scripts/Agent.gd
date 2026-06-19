@@ -56,7 +56,13 @@ func _on_earthquake_triggered() -> void:
 	state = "PANIC"
 	sprite.modulate = Color.RED
 	nav_agent.target_position = global_position
+	_check_exit_overlap()
 	_navigate_to_nearest_exit()
+
+func _check_exit_overlap() -> void:
+	for exit in Manager.exits:
+		if exit.has_method("despawn_panic_agents"):
+			exit.despawn_panic_agents()
 
 func _navigate_to_nearest_exit() -> void:
 	var nearest_exit: Node2D = Manager.get_nearest_exit(global_position, assigned_floor)

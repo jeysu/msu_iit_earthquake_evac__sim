@@ -52,11 +52,14 @@ func _deliver_to_floor(agent: Node2D) -> void:
 
 	agent.assigned_floor  = destination_floor
 	agent.visible         = true
+	
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	
 	agent.set_physics_process(true)
 	agent._navigate_to_nearest_exit()
 
 func _wait_and_retry(agent: Node2D) -> void:
-	await get_tree().create_timer(0.5).timeout
-	if not is_instance_valid(agent):
-		return
-	_on_body_entered(agent)
+	if agent.has_method("set_physics_process"):
+		agent.velocity = Vector2.LEFT * 50
+		agent.move_and_slide()
