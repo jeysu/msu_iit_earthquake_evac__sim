@@ -14,6 +14,7 @@ extends Area2D
 func _ready() -> void:
 	add_to_group("exits")
 	area_entered.connect(_on_area_entered)
+	Manager.earthquake_started.connect(_on_earthquake_started)
 
 
 ## The Exit Area2D node itself always sits at local (0,0) under "Exits" - the
@@ -27,6 +28,28 @@ func get_target_position() -> Vector2:
 
 
 func _on_area_entered(area: Area2D) -> void:
+	if not Manager.earthquake_triggered:
+		return  # Pre-quake wandering agents pass through exits freely - an exit
+				# only "counts" once the evacuation has actually begun. Without
+				# this, an agent in State.NORMAL that happens to wander across
+				# the exit zone gets despawned and counted as escaped before
+				# anything has even happened.
+	_try_evacuate(area)
+
+
+## area_entered only fires on a *new* overlap. An agent that wandered into
+## this exit's zone before the quake (and is just standing there, since the
+## check above was blocking it) won't generate a fresh signal once the quake
+## fires - it's already "entered". Without this sweep that agent would be
+## physically standing in the exit but never get counted as escaped until it
+## happened to wander back out and back in again. So the instant the quake
+## triggers, check everyone already overlapping this exit right now.
+func _on_earthquake_started() -> void:
+	for area in get_overlapping_areas():
+		_try_evacuate(area)
+
+
+func _try_evacuate(area: Area2D) -> void:
 	if is_blocked:
 		return
 

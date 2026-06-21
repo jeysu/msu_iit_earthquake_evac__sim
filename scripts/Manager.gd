@@ -62,6 +62,21 @@ var cell_size: float = 32.0
 var live_density: Dictionary = {}   # Vector2i cell -> float (decaying live count)
 var density_decay: float = 0.92
 
+# --- Spatial hash grid for fast local-crowding queries ---
+# Rebuilt lazily, at most once per physics frame, no matter how many agents
+# call get_local_agent_count() that frame. Without this, get_local_agent_count
+# was an O(n) scan over every agent in the simulation, called once per active
+# agent per physics frame -> O(n^2) per frame. At 100 agents/floor across 4
+# floors (400 agents) that's ~160,000 distance checks/tick, which is the
+# main cause of simulation slowdown at higher agent counts.
+#
+# NOTE: radius passed into get_local_agent_count() (currently 16.0, see
+# Agent.gd) must stay <= cell_size for the 3x3 neighborhood check below to
+# be correct. If you ever raise that radius above cell_size, widen the
+# neighborhood loop (or bump cell_size) accordingly.
+var _agent_grid: Dictionary = {}        # Vector2i cell -> Array[Node] (this frame's agents)
+var _agent_grid_built_frame: int = -1
+
 
 # ---------------------------------------------------------------------------
 # Registration (called by Floor.gd and Agent.gd)
@@ -110,13 +125,47 @@ func log_position(world_pos: Vector2) -> void:
 
 
 func get_local_agent_count(world_pos: Vector2, radius: float, exclude: Node = null) -> int:
+	_ensure_agent_grid_current()
+
 	var count := 0
-	for a in agents:
-		if a == exclude or not is_instance_valid(a):
-			continue
-		if a.global_position.distance_to(world_pos) <= radius:
-			count += 1
+	var center_cell := _grid_cell(world_pos)
+	for dx in range(-1, 2):
+		for dy in range(-1, 2):
+			var cell := center_cell + Vector2i(dx, dy)
+			var bucket = _agent_grid.get(cell)
+			if bucket == null:
+				continue
+			for a in bucket:
+				if a == exclude or not is_instance_valid(a):
+					continue
+				if a.global_position.distance_to(world_pos) <= radius:
+					count += 1
 	return count
+
+
+func _grid_cell(world_pos: Vector2) -> Vector2i:
+	return Vector2i(int(floor(world_pos.x / cell_size)), int(floor(world_pos.y / cell_size)))
+
+
+## Rebuilds the agent spatial hash at most once per physics frame. Cheap to
+## call redundantly - every agent calls this every physics frame via
+## get_local_agent_count(), but only the first call in a given frame does
+## any work (subsequent calls in the same frame are a no-op check).
+func _ensure_agent_grid_current() -> void:
+	var current_frame := Engine.get_physics_frames()
+	if _agent_grid_built_frame == current_frame:
+		return
+	_agent_grid_built_frame = current_frame
+
+	_agent_grid.clear()
+	for a in agents:
+		if not is_instance_valid(a):
+			continue
+		var cell := _grid_cell(a.global_position)
+		if _agent_grid.has(cell):
+			_agent_grid[cell].append(a)
+		else:
+			_agent_grid[cell] = [a]
 
 
 # ---------------------------------------------------------------------------

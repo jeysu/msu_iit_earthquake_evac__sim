@@ -13,19 +13,19 @@
 
 [node name="Floor0" parent="Floors" unique_id=1584161637 instance=ExtResource("1_c01mt")]
 position = Vector2(50, 9)
-base_occupancy = 100
+base_occupancy = 400
 
 [node name="Floor1" parent="Floors" unique_id=944519962 instance=ExtResource("2_nxtc6")]
 position = Vector2(57, 1027)
-base_occupancy = 100
+base_occupancy = 300
 
 [node name="Floor2" parent="Floors" unique_id=609781284 instance=ExtResource("3_jlsqs")]
 position = Vector2(1640, 2)
-base_occupancy = 50
+base_occupancy = 200
 
 [node name="Floor3" parent="Floors" unique_id=1753914366 instance=ExtResource("4_q8u5g")]
 position = Vector2(1630, 1029)
-base_occupancy = 25
+base_occupancy = 100
 
 [node name="HeatMapCanvas" type="Node2D" parent="." unique_id=414072212]
 script = ExtResource("1_elqb8")

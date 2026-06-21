@@ -16,16 +16,29 @@ const AgentScene: PackedScene = preload("res://scenes/Agent.tscn")
 @onready var wander_points_container: Node2D = $WanderPoints
 @onready var agents_container: Node2D = $Agents
 
+# Cached at _ready() instead of rebuilt via get_children()+filtering on every
+# call. These were getting rebuilt every time any agent picked a new wander
+# target / panic target - with 100+ agents per floor doing that frequently,
+# the repeated node-walk + array allocation added unnecessary overhead.
+# Static for the lifetime of a run (set_blocked() only flips a flag on the
+# existing nodes, it doesn't add/remove children), so caching is safe.
+var _wander_points_cache: Array = []
+var _exits_cache: Array = []
+var _stairs_cache: Array = []
+
 
 func _ready() -> void:
 	Manager.register_floor(floor_index, self)
+	_wander_points_cache = _collect_wander_points()
+	_exits_cache = _collect_exits()
+	_stairs_cache = _collect_stairs()
 
 
 # ---------------------------------------------------------------------------
 # Wander points
 # ---------------------------------------------------------------------------
 
-func get_wander_points() -> Array:
+func _collect_wander_points() -> Array:
 	var points: Array = []
 	for child in wander_points_container.get_children():
 		if child is Marker2D:
@@ -33,22 +46,25 @@ func get_wander_points() -> Array:
 	return points
 
 
+func get_wander_points() -> Array:
+	return _wander_points_cache
+
+
 func get_wander_point_by_name(point_name: String) -> Marker2D:
 	return wander_points_container.get_node_or_null(point_name) as Marker2D
 
 
 func get_random_wander_point() -> Marker2D:
-	var points := get_wander_points()
-	if points.is_empty():
+	if _wander_points_cache.is_empty():
 		return null
-	return points[randi() % points.size()]
+	return _wander_points_cache[randi() % _wander_points_cache.size()]
 
 
 # ---------------------------------------------------------------------------
 # Exits / Stairs
 # ---------------------------------------------------------------------------
 
-func get_exits() -> Array:
+func _collect_exits() -> Array:
 	var result: Array = []
 	for child in exits_container.get_children():
 		if child.is_in_group("exits"):
@@ -56,12 +72,20 @@ func get_exits() -> Array:
 	return result
 
 
-func get_stairs() -> Array:
+func _collect_stairs() -> Array:
 	var result: Array = []
 	for child in stairs_container.get_children():
 		if child.is_in_group("stairs"):
 			result.append(child)
 	return result
+
+
+func get_exits() -> Array:
+	return _exits_cache
+
+
+func get_stairs() -> Array:
+	return _stairs_cache
 
 
 func get_nearest_exit(from_pos: Vector2) -> Node:
