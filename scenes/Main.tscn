@@ -11,19 +11,21 @@
 
 [node name="Floors" type="Node2D" parent="." unique_id=1402324463]
 
-[node name="Floor" parent="Floors" unique_id=1584161637 instance=ExtResource("1_c01mt")]
+[node name="Floor0" parent="Floors" unique_id=1584161637 instance=ExtResource("1_c01mt")]
 position = Vector2(50, 9)
+base_occupancy = 100
 
-[node name="Floor2" parent="Floors" unique_id=944519962 instance=ExtResource("2_nxtc6")]
+[node name="Floor1" parent="Floors" unique_id=944519962 instance=ExtResource("2_nxtc6")]
 position = Vector2(57, 1027)
+base_occupancy = 100
 
-[node name="Floor3" parent="Floors" unique_id=609781284 instance=ExtResource("3_jlsqs")]
+[node name="Floor2" parent="Floors" unique_id=609781284 instance=ExtResource("3_jlsqs")]
 position = Vector2(1640, 2)
-floor_index = 2
+base_occupancy = 50
 
-[node name="Floor4" parent="Floors" unique_id=1753914366 instance=ExtResource("4_q8u5g")]
+[node name="Floor3" parent="Floors" unique_id=1753914366 instance=ExtResource("4_q8u5g")]
 position = Vector2(1630, 1029)
-floor_index = 3
+base_occupancy = 25
 
 [node name="HeatMapCanvas" type="Node2D" parent="." unique_id=414072212]
 script = ExtResource("1_elqb8")
@@ -56,6 +58,15 @@ offset_left = 20.0
 offset_top = 120.0
 offset_right = 70.0
 offset_bottom = 170.0
+text = "Start"
+
+[node name="Button_Panic" type="Button" parent="UI/CanvasLayer" unique_id=973420666]
+offset_left = 20.0
+offset_top = 180.0
+offset_right = 70.0
+offset_bottom = 230.0
+disabled = true
+text = "Panic"
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1676030965]
 position = Vector2(1775, 1057)

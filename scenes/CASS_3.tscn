@@ -14,6 +14,7 @@ agent_radius = 3.0
 size = Vector2(28, 14)
 
 [node name="Floor" unique_id=1584161637 instance=ExtResource("1_tfl0n")]
+floor_index = 3
 
 [node name="Sprite2D" parent="." index="0" unique_id=1331275016]
 position = Vector2(966.99994, 540.99994)
@@ -23,12 +24,12 @@ texture = ExtResource("2_omu25")
 [node name="NavigationRegion2D" parent="." index="1" unique_id=435981806]
 navigation_polygon = SubResource("NavigationPolygon_8ddvi")
 
-[node name="Stair_7" type="Area2D" parent="StairConnectors" parent_id_path=PackedInt32Array(1737691285) index="0" unique_id=120462148]
+[node name="Stair_3_1" type="Area2D" parent="StairConnectors" parent_id_path=PackedInt32Array(1737691285) index="0" unique_id=120462148]
 script = ExtResource("3_8ddvi")
 destination_floor = 2
-destination_stair_name = "Stair_7"
+destination_marker_name = "Stair_3_1"
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="StairConnectors/Stair_7" index="0" unique_id=1433884029]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="StairConnectors/Stair_3_1" index="0" unique_id=1433884029]
 position = Vector2(1257, 548)
 shape = SubResource("RectangleShape2D_omu25")
 
@@ -40,3 +41,6 @@ position = Vector2(1313, 571)
 
 [node name="WP_3" type="Marker2D" parent="WanderPoints" parent_id_path=PackedInt32Array(715812298) index="2" unique_id=489358957]
 position = Vector2(1140, 597)
+
+[node name="Stair_2_3" type="Marker2D" parent="WanderPoints" parent_id_path=PackedInt32Array(715812298) index="3" unique_id=1057664203]
+position = Vector2(1258, 567)

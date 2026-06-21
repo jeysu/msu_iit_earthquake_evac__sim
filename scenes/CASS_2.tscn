@@ -11,15 +11,16 @@ outlines = Array[PackedVector2Array]([PackedVector2Array(739, 11, 702, 24, 710, 
 agent_radius = 3.0
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_2on63"]
-size = Vector2(16.5, 24)
+size = Vector2(10, 20)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_4ucqn"]
-size = Vector2(37, 21)
+size = Vector2(29, 14)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_q06n5"]
-size = Vector2(22.216492, 13.432404)
+size = Vector2(26.712029, 14.450565)
 
 [node name="Floor" unique_id=1584161637 instance=ExtResource("1_uhu3w")]
+floor_index = 2
 
 [node name="Sprite2D" parent="." index="0" unique_id=1331275016]
 position = Vector2(956.99994, 544.00006)
@@ -30,28 +31,31 @@ texture = ExtResource("2_i0xu8")
 position = Vector2(628, 512)
 navigation_polygon = SubResource("NavigationPolygon_i0xu8")
 
-[node name="Stair_5" type="Area2D" parent="StairConnectors" parent_id_path=PackedInt32Array(1737691285) index="0" unique_id=1013292233]
+[node name="Stair_2_1" type="Area2D" parent="StairConnectors" parent_id_path=PackedInt32Array(1737691285) index="0" unique_id=1013292233]
 script = ExtResource("3_2on63")
 destination_floor = 1
-destination_stair_name = "Stair_5"
+destination_marker_name = "Stair_2_1"
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="StairConnectors/Stair_5" index="0" unique_id=1382853624]
-position = Vector2(949.75, 601)
+[node name="CollisionShape2D" type="CollisionShape2D" parent="StairConnectors/Stair_2_1" index="0" unique_id=1382853624]
+position = Vector2(950, 600)
 shape = SubResource("RectangleShape2D_2on63")
 
-[node name="Stair_6" type="Area2D" parent="StairConnectors" parent_id_path=PackedInt32Array(1737691285) index="1" unique_id=1978886919]
+[node name="Stair_2_2" type="Area2D" parent="StairConnectors" parent_id_path=PackedInt32Array(1737691285) index="1" unique_id=1978886919]
 script = ExtResource("3_2on63")
 destination_floor = 1
-destination_stair_name = "Stair_6"
+destination_marker_name = "Stair_2_2"
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="StairConnectors/Stair_6" index="0" unique_id=1504712680]
-position = Vector2(1298.5, 550.5)
+[node name="CollisionShape2D" type="CollisionShape2D" parent="StairConnectors/Stair_2_2" index="0" unique_id=1504712680]
+position = Vector2(1298.5, 550)
 shape = SubResource("RectangleShape2D_4ucqn")
 
-[node name="Stair_7" type="Area2D" parent="StairConnectors" parent_id_path=PackedInt32Array(1737691285) index="2" unique_id=723391609]
+[node name="Stair_2_3" type="Area2D" parent="StairConnectors" parent_id_path=PackedInt32Array(1737691285) index="2" unique_id=723391609]
+script = ExtResource("3_2on63")
+destination_floor = 3
+destination_marker_name = "Stair_2_3"
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="StairConnectors/Stair_7" index="0" unique_id=381284609]
-position = Vector2(1353.5, 543.5)
+[node name="CollisionShape2D" type="CollisionShape2D" parent="StairConnectors/Stair_2_3" index="0" unique_id=381284609]
+position = Vector2(1353.7117, 541.85913)
 rotation = -0.27079767
 shape = SubResource("RectangleShape2D_q06n5")
 
@@ -84,3 +88,12 @@ position = Vector2(1243, 617)
 
 [node name="WP_10" type="Marker2D" parent="WanderPoints" parent_id_path=PackedInt32Array(715812298) index="9" unique_id=558560337]
 position = Vector2(1247, 693)
+
+[node name="Stair_1_5" type="Marker2D" parent="WanderPoints" parent_id_path=PackedInt32Array(715812298) index="10" unique_id=932556277]
+position = Vector2(1298, 570)
+
+[node name="Stair_1_6" type="Marker2D" parent="WanderPoints" parent_id_path=PackedInt32Array(715812298) index="11" unique_id=1489523130]
+position = Vector2(950, 581)
+
+[node name="Stair_3_1" type="Marker2D" parent="WanderPoints" parent_id_path=PackedInt32Array(715812298) index="12" unique_id=1691156838]
+position = Vector2(1358, 561)
