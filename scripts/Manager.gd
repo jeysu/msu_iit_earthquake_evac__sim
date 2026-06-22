@@ -37,6 +37,12 @@ var blocked_stair_names: Dictionary = {
 	Scenario.CONSTRAINED: [],
 }
 
+# Snapshot of each node's is_blocked value as set in the Inspector (captured
+# once, before any simulation run overwrites it). This lets Option B preserve
+# editor-authored "always blocked" flags across restarts.
+var _editor_blocked_exits: Dictionary = {}   # node instance_id -> bool
+var _editor_blocked_stairs: Dictionary = {}  # node instance_id -> bool
+
 var time_to_earthquake: float = 5.0  # Seconds of "Normal" wandering before the quake signal fires.
 
 # Fraction of total_agents_spawned that must escape before the simulation
@@ -76,6 +82,19 @@ var density_decay: float = 0.92
 # neighborhood loop (or bump cell_size) accordingly.
 var _agent_grid: Dictionary = {}        # Vector2i cell -> Array[Node] (this frame's agents)
 var _agent_grid_built_frame: int = -1
+
+
+# ---------------------------------------------------------------------------
+# Lifecycle
+# ---------------------------------------------------------------------------
+
+func _ready() -> void:
+	# Snapshot every exit/stair's is_blocked value exactly as authored in the
+	# Inspector, before start_simulation() ever calls _apply_scenario_blocks().
+	# We wait one frame so all Floor nodes (and their children) have finished
+	# their own _ready() calls and registered with Manager.
+	await get_tree().process_frame
+	_snapshot_editor_blocked_flags()
 
 
 # ---------------------------------------------------------------------------
@@ -190,15 +209,37 @@ func start_simulation(scenario: int = Scenario.BASELINE) -> void:
 
 
 func _apply_scenario_blocks(scenario: int) -> void:
+	# Option B: respect the editor-set is_blocked flag on each node.
+	# Priority order for each node:
+	#   1. Scenario list says block it   -> blocked (true)
+	#   2. Editor Inspector had it blocked -> blocked (true, preserved across restarts)
+	#   3. Neither                        -> unblocked (false)
 	var blocked_exits: Array = blocked_exit_names.get(scenario, [])
 	for exit_node in get_tree().get_nodes_in_group("exits"):
 		if exit_node.has_method("set_blocked"):
-			exit_node.set_blocked(exit_node.name in blocked_exits)
+			var editor_blocked: bool = _editor_blocked_exits.get(exit_node.get_instance_id(), false)
+			exit_node.set_blocked((exit_node.name in blocked_exits) or editor_blocked)
 
 	var blocked_stairs: Array = blocked_stair_names.get(scenario, [])
 	for stair_node in get_tree().get_nodes_in_group("stairs"):
 		if stair_node.has_method("set_blocked"):
-			stair_node.set_blocked(stair_node.name in blocked_stairs)
+			var editor_blocked: bool = _editor_blocked_stairs.get(stair_node.get_instance_id(), false)
+			stair_node.set_blocked((stair_node.name in blocked_stairs) or editor_blocked)
+
+
+func _snapshot_editor_blocked_flags() -> void:
+	# Called once from _ready() (after one deferred frame) so all nodes exist.
+	# Records whatever is_blocked value is baked into the scene/Inspector for
+	# every exit and stair, so _apply_scenario_blocks() can honour it later.
+	_editor_blocked_exits.clear()
+	for exit_node in get_tree().get_nodes_in_group("exits"):
+		if "is_blocked" in exit_node:
+			_editor_blocked_exits[exit_node.get_instance_id()] = exit_node.is_blocked
+
+	_editor_blocked_stairs.clear()
+	for stair_node in get_tree().get_nodes_in_group("stairs"):
+		if "is_blocked" in stair_node:
+			_editor_blocked_stairs[stair_node.get_instance_id()] = stair_node.is_blocked
 
 
 func _spawn_all_agents(scenario: int) -> void:

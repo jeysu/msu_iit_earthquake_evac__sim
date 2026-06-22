@@ -41,6 +41,7 @@ navigation_polygon = SubResource("NavigationPolygon_backe")
 [node name="Stair_1_1" type="Area2D" parent="StairConnectors" parent_id_path=PackedInt32Array(1737691285) index="0" unique_id=1754291640]
 script = ExtResource("3_backe")
 destination_marker_name = "Stair_1_1"
+is_blocked = true
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="StairConnectors/Stair_1_1" index="0" unique_id=1432932454]
 position = Vector2(1170, 310)
