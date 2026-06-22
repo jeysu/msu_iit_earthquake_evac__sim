@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bf7hjpjtgwr7o"
-path="res://.godot/imported/fdaf5306-286b-4605-b02d-3d434cfec580.jpg-a5e397e599e8d621b3262a638d1c2ad6.ctex"
+uid="uid://mfp1nn4na1rg"
+path="res://.godot/imported/CCS floor plan_page-0002.jpg-7b2c165189f085ca7782f10fcc6d9470.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/fdaf5306-286b-4605-b02d-3d434cfec580.jpg"
-dest_files=["res://.godot/imported/fdaf5306-286b-4605-b02d-3d434cfec580.jpg-a5e397e599e8d621b3262a638d1c2ad6.ctex"]
+source_file="res://assets/CCS floor plan_page-0002.jpg"
+dest_files=["res://.godot/imported/CCS floor plan_page-0002.jpg-7b2c165189f085ca7782f10fcc6d9470.ctex"]
 
 [params]
 

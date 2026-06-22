@@ -47,8 +47,6 @@ shape = SubResource("RectangleShape2D_y5fdd")
 
 [node name="Stair_0_1" type="Area2D" parent="StairConnectors" parent_id_path=PackedInt32Array(1737691285) index="0" unique_id=1874502869]
 script = ExtResource("4_stair")
-destination_floor = 1
-destination_marker_name = "Stair_0_1"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="StairConnectors/Stair_0_1" index="0" unique_id=1016346380]
 position = Vector2(964.00006, 162.5)
