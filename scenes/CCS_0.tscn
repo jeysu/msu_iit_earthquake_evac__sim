@@ -12,7 +12,13 @@ outlines = Array[PackedVector2Array]([PackedVector2Array(1508, 448, 1508, 551, 2
 agent_radius = 3.0
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_c4tby"]
-size = Vector2(1245, 39)
+size = Vector2(92, 39)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_afxwx"]
+size = Vector2(92, 39)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_sal8c"]
+size = Vector2(92, 39)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_l5vnn"]
 size = Vector2(13, 32)
@@ -37,8 +43,22 @@ navigation_polygon = SubResource("NavigationPolygon_l5vnn")
 script = ExtResource("3_afxwx")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Exits/Exit" index="0" unique_id=1156563492]
-position = Vector2(866.5, 519.5)
+position = Vector2(866, 519.5)
 shape = SubResource("RectangleShape2D_c4tby")
+
+[node name="Exit2" type="Area2D" parent="Exits" parent_id_path=PackedInt32Array(1814494962) index="1" unique_id=1845754748]
+script = ExtResource("3_afxwx")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Exits/Exit2" index="0" unique_id=393947609]
+position = Vector2(293, 519)
+shape = SubResource("RectangleShape2D_afxwx")
+
+[node name="Exit3" type="Area2D" parent="Exits" parent_id_path=PackedInt32Array(1814494962) index="2" unique_id=347189352]
+script = ExtResource("3_afxwx")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Exits/Exit3" index="0" unique_id=516351015]
+position = Vector2(1447, 518)
+shape = SubResource("RectangleShape2D_sal8c")
 
 [node name="Stair_0_1" type="Area2D" parent="StairConnectors" parent_id_path=PackedInt32Array(1737691285) index="0" unique_id=1005219937]
 script = ExtResource("4_sal8c")

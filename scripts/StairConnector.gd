@@ -24,6 +24,14 @@ extends Area2D
 ## practical approximation, arrival order at *this* connector already gives
 ## first-come-first-served priority, and the capacity cap below reproduces
 ## the "queue backs up under high density" behavior from 3.4.6.3.
+##
+## --- Added metrics (small additions) ---
+##   transit_count       : total agents that completed transit through this connector.
+##   peak_queue_length   : highest _queue.size() observed at any moment.
+##   _wait_times         : per-agent queue wait time (s); used to compute mean/max.
+##   _effective_transits : per-agent actual transit time (s); mean quantifies
+##                         density-dependent slowdown vs. base_transit_time.
+## All are reported to Manager.register_stair_stats() when the simulation ends.
 
 @export var destination_floor: int = 0
 @export var destination_marker_name: String = ""
@@ -31,13 +39,21 @@ extends Area2D
 @export var capacity: int = 20               # Max agents physically on the stairs at once.
 @export var is_blocked: bool = false         # "Constrained Scenario" (3.5).
 
-var _queue: Array = []
+var _queue: Array = []           # Waiting agents (not yet in transit).
 var _in_transit_count: int = 0
+
+# --- Per-connector stats ---
+var transit_count: int = 0          # Total agents that completed this hop.
+var peak_queue_length: int = 0      # Worst-case queue depth observed.
+var _queue_entry_times: Dictionary = {}   # agent instance_id -> time they joined the queue.
+var _wait_times: Array = []               # Seconds each agent spent waiting in the queue.
+var _effective_transit_times: Array = []  # Actual transit duration per agent.
 
 
 func _ready() -> void:
 	add_to_group("stairs")
 	area_entered.connect(_on_area_entered)
+	Manager.simulation_complete.connect(_on_simulation_complete)
 
 
 ## The StairConnector Area2D node itself always sits at local (0,0) under
@@ -64,7 +80,15 @@ func _on_area_entered(area: Area2D) -> void:
 		return
 
 	agent.enter_stair_transit()
+
+	# Stamp queue entry time before appending so wait time can be diffed on pop.
+	_queue_entry_times[agent.get_instance_id()] = Manager.elapsed_time
 	_queue.append(agent)
+
+	# Track peak queue depth (queue size includes the agent just added).
+	if _queue.size() > peak_queue_length:
+		peak_queue_length = _queue.size()
+
 	_process_queue()
 
 
@@ -72,6 +96,12 @@ func _process_queue() -> void:
 	while _in_transit_count < capacity and not _queue.is_empty():
 		var agent = _queue.pop_front()
 		_in_transit_count += 1
+
+		# Record how long this agent waited in the queue before getting on the stairs.
+		var entry_time: float = _queue_entry_times.get(agent.get_instance_id(), Manager.elapsed_time)
+		_queue_entry_times.erase(agent.get_instance_id())
+		_wait_times.append(Manager.elapsed_time - entry_time)
+
 		_transit_agent(agent)
 
 
@@ -83,6 +113,9 @@ func _transit_agent(agent: Node) -> void:
 	var rho_max: float = float(capacity)
 	var slowdown: float = 1.0 / clamp(1.0 - (rho / (rho_max + 1.0)), 0.15, 1.0)
 	var transit_time: float = base_transit_time * slowdown
+
+	# Record actual transit duration for this agent before awaiting.
+	_effective_transit_times.append(transit_time)
 
 	await get_tree().create_timer(transit_time).timeout
 
@@ -105,9 +138,41 @@ func _complete_transit(agent: Node) -> void:
 		push_warning("StairConnector '%s': marker '%s' not found on floor %d." % [name, destination_marker_name, destination_floor])
 		return
 
+	transit_count += 1
 	agent.global_position = marker.global_position
 	agent.exit_stair_transit(dest_floor)
 
 
 func set_blocked(value: bool) -> void:
 	is_blocked = value
+
+
+## Called when Manager emits simulation_complete. Bundles this connector's
+## stats and forwards them so they appear in the summary CSV.
+func _on_simulation_complete(_stats: Dictionary) -> void:
+	var mean_wait: float = 0.0
+	if not _wait_times.is_empty():
+		for t in _wait_times:
+			mean_wait += t
+		mean_wait /= float(_wait_times.size())
+
+	var max_wait: float = 0.0
+	for t in _wait_times:
+		if t > max_wait:
+			max_wait = t
+
+	var mean_transit: float = 0.0
+	if not _effective_transit_times.is_empty():
+		for t in _effective_transit_times:
+			mean_transit += t
+		mean_transit /= float(_effective_transit_times.size())
+
+	Manager.register_stair_stats(name, {
+		"transit_count":        transit_count,
+		"peak_queue_length":    peak_queue_length,
+		"mean_wait_time":       mean_wait,
+		"max_wait_time":        max_wait,
+		"mean_transit_time":    mean_transit,
+		"base_transit_time":    base_transit_time,
+		"slowdown_factor":      mean_transit / base_transit_time if base_transit_time > 0.0 else 1.0,
+	})

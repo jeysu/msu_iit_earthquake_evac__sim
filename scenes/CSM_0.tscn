@@ -38,7 +38,6 @@ navigation_polygon = SubResource("NavigationPolygon_srvhq")
 
 [node name="Exit" type="Area2D" parent="Exits" parent_id_path=PackedInt32Array(1814494962) index="0" unique_id=278788492]
 script = ExtResource("3_rjf7j")
-is_blocked = true
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Exits/Exit" index="0" unique_id=2103813646]
 position = Vector2(871, 765)

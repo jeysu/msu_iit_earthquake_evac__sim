@@ -7,6 +7,10 @@ extends Area2D
 ## not body_entered.
 ##
 ## Thesis ref: Chapter 3.4.2 "The Environment (Digitization Layer)", Listing 3.1.
+##
+## --- Change from original ---
+## Manager.agent_escaped() now receives this exit's node name so the escape
+## log can record which exit each agent used (exit choice distribution metric).
 
 @export var is_blocked: bool = false  # Used by the "Constrained Scenario" (3.5).
 
@@ -63,7 +67,8 @@ func _try_evacuate(area: Area2D) -> void:
 	if agent.has_method("is_active") and not agent.is_active():
 		return  # Already claimed by an overlapping Exit/StairConnector this frame.
 
-	Manager.agent_escaped(agent)
+	# Pass this exit's node name so Manager can log which exit was used.
+	Manager.agent_escaped(agent, name)
 	agent.on_escaped()
 
 

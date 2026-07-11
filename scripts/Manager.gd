@@ -9,6 +9,24 @@ extends Node
 ##
 ## Thesis ref: Chapter 3.4.4 "The Manager (Data Analysis Layer)", Listing 3.3,
 ## and Chapter 3.6 "Data Analysis".
+##
+## --- Metrics added in this version ---
+##
+## Zero-effort (derived from escape_log at finish):
+##   first_escape_time       - time the first agent reached a safe exit.
+##   last_escape_time        - time the last counted agent escaped (T_100pct).
+##   median_escape_time      - 50th-percentile individual escape time.
+##   escape_time_stddev      - std. deviation of individual escape times.
+##   clearance_time_per_floor - dict: floor_index -> time last agent on that floor escaped.
+##   escape_count_per_floor  - dict: floor_index -> how many agents originated there.
+##   floor_peak_contribution - which floor's agents were escaping during peak flow window.
+##   exit_use_counts         - dict: exit_name -> number of agents that used it.
+##
+## Small additions (new per-agent fields + StairConnector instrumentation):
+##   reaction_time mean/σ    - aggregated from reaction_time passed by Agent._ready().
+##   mean/max distance       - per-agent distance_travelled reported at escape.
+##   mean congestion time    - per-agent congestion_frames * physics_delta reported at escape.
+##   stair_stats             - per-connector dict from StairConnector._on_simulation_complete().
 
 signal earthquake_started
 signal agent_escaped_updated(escaped_count: int, total_count: int)
@@ -61,7 +79,17 @@ var agents: Array = []          # all currently-active Agent nodes
 
 var total_agents_spawned: int = 0
 var agents_escaped: int = 0
-var escape_log: Array = []      # [{agent_id, time, floor}, ...]
+
+# escape_log entries: {agent_id, time, floor, exit_id, distance, congestion_time}
+var escape_log: Array = []
+
+# --- Agent attribute log (populated by register_agent) ---
+# Stores reaction_time for every spawned agent so mean/σ can be computed
+# even for agents still in the building when the 90% threshold is hit.
+var _reaction_times: Array = []
+
+# --- Stair stats (populated by StairConnector via register_stair_stats) ---
+var stair_stats: Dictionary = {}   # stair_name -> stats dict
 
 # --- Heat map density grid (3.6 Data Analysis / "Red Zones") ---
 var cell_size: float = 32.0
@@ -98,7 +126,7 @@ func _ready() -> void:
 
 
 # ---------------------------------------------------------------------------
-# Registration (called by Floor.gd and Agent.gd)
+# Registration (called by Floor.gd, Agent.gd, StairConnector.gd)
 # ---------------------------------------------------------------------------
 
 func register_floor(floor_index: int, floor_node: Node) -> void:
@@ -109,24 +137,53 @@ func get_floor(floor_index: int) -> Node:
 	return floors.get(floor_index, null)
 
 
-func register_agent(agent: Node) -> void:
+## reaction_time_val is Agent.reaction_time, already randomised in Agent._ready().
+## Logging it here (rather than reading it back from the node later) means we
+## retain it even after the agent is queue_free()'d.
+func register_agent(agent: Node, reaction_time_val: float) -> void:
 	agents.append(agent)
 	total_agents_spawned += 1
+	_reaction_times.append(reaction_time_val)
 
 
-func agent_escaped(agent: Node) -> void:
+## Called by Exit.gd. exit_name is the node name of the exit that fired.
+## agent.distance_travelled and agent.congestion_frames are read here before
+## on_escaped() calls queue_free().
+func agent_escaped(agent: Node, exit_name: String = "") -> void:
 	if not simulation_running:
 		return  # Already wrapped up (e.g. a same-frame straggler reaching an exit
 				# right as the 90% threshold was hit) - don't double-count or re-finish.
 
 	agents_escaped += 1
 	var floor_idx: int = agent.current_floor.floor_index if agent.current_floor else -1
-	escape_log.append({"agent_id": agent.get_instance_id(), "time": elapsed_time, "floor": floor_idx})
+
+	# Read per-agent movement metrics before the node is freed by on_escaped().
+	var dist: float = agent.distance_travelled if "distance_travelled" in agent else 0.0
+	var cong_frames: int = agent.congestion_frames if "congestion_frames" in agent else 0
+	var physics_delta: float = agent.get_physics_process_delta_time() if agent.has_method("get_physics_process_delta_time") else (1.0 / 60.0)
+	var congestion_time: float = float(cong_frames) * physics_delta
+
+	escape_log.append({
+		"agent_id":        agent.get_instance_id(),
+		"time":            elapsed_time,
+		"floor":           floor_idx,
+		"exit_id":         exit_name,
+		"distance":        dist,
+		"congestion_time": congestion_time,
+	})
+
 	agents.erase(agent)
 	agent_escaped_updated.emit(agents_escaped, total_agents_spawned)
 
 	if agents_escaped >= _required_escapes_for_completion():
 		_finish_simulation()
+
+
+## Called by StairConnector._on_simulation_complete() after the run ends.
+## Connectors connect to the simulation_complete signal themselves and push
+## their stats here; Manager then includes them in the summary CSV.
+func register_stair_stats(stair_name: String, stats: Dictionary) -> void:
+	stair_stats[stair_name] = stats
 
 
 func _required_escapes_for_completion() -> int:
@@ -201,6 +258,8 @@ func start_simulation(scenario: int = Scenario.BASELINE) -> void:
 	escape_log.clear()
 	agents.clear()
 	live_density.clear()
+	_reaction_times.clear()
+	stair_stats.clear()
 
 	_apply_scenario_blocks(scenario)
 	_spawn_all_agents(scenario)
@@ -269,18 +328,222 @@ func trigger_earthquake() -> void:
 		earthquake_started.emit()
 
 
+# ---------------------------------------------------------------------------
+# _finish_simulation — computes all metrics and emits simulation_complete
+# ---------------------------------------------------------------------------
+
 func _finish_simulation() -> void:
 	simulation_running = false
+
+	var clearance_time: float = elapsed_time
+	var n: int = escape_log.size()
+
+	# ------------------------------------------------------------------
+	# Throughput / flow metrics (original thesis table columns)
+	# ------------------------------------------------------------------
+
+	var avg_flow: float = float(agents_escaped) / clearance_time if clearance_time > 0.0 else 0.0
+
+	var core_flow: float = 0.0
+	if n >= 2:
+		var idx_10: int = int(n * 0.1)
+		var idx_90: int = int(n * 0.9)
+		var t10: float = escape_log[idx_10].time
+		var t90: float = escape_log[idx_90].time
+		var core_window: float = t90 - t10
+		if core_window > 0.0:
+			var core_count: int = 0
+			for e in escape_log:
+				if e.time >= t10 and e.time <= t90:
+					core_count += 1
+			core_flow = float(core_count) / core_window
+
+	var peak_flow: float = 0.0
+	var peak_window_start: float = 0.0
+	var window_sec: float = 1.0
+	for i in n:
+		var t_start: float = escape_log[i].time
+		var window_count: int = 0
+		for j in range(i, n):
+			if escape_log[j].time - t_start <= window_sec:
+				window_count += 1
+			else:
+				break
+		if float(window_count) > peak_flow:
+			peak_flow = float(window_count)
+			peak_window_start = t_start
+
+	var peak_mean_ratio: float = peak_flow / avg_flow if avg_flow > 0.0 else 0.0
+
+	# ------------------------------------------------------------------
+	# Zero-effort timing metrics
+	# ------------------------------------------------------------------
+
+	var first_escape_time: float = escape_log[0].time if n > 0 else 0.0
+	var last_escape_time: float = escape_log[n - 1].time if n > 0 else 0.0
+
+	# Median: sort escape times and take the middle value.
+	var sorted_times: Array = []
+	for e in escape_log:
+		sorted_times.append(e.time)
+	sorted_times.sort()
+	var median_escape_time: float = 0.0
+	if sorted_times.size() > 0:
+		var mid: int = sorted_times.size() / 2
+		if sorted_times.size() % 2 == 0:
+			median_escape_time = (sorted_times[mid - 1] + sorted_times[mid]) * 0.5
+		else:
+			median_escape_time = sorted_times[mid]
+
+	# Standard deviation of individual escape times.
+	var escape_time_mean: float = clearance_time  # mean ≈ avg flow denominator
+	if n > 0:
+		var sum_t: float = 0.0
+		for t in sorted_times:
+			sum_t += t
+		escape_time_mean = sum_t / float(n)
+	var escape_time_variance: float = 0.0
+	for t in sorted_times:
+		var diff: float = t - escape_time_mean
+		escape_time_variance += diff * diff
+	if n > 1:
+		escape_time_variance /= float(n - 1)
+	var escape_time_stddev: float = sqrt(escape_time_variance)
+
+	# ------------------------------------------------------------------
+	# Zero-effort per-floor metrics
+	# ------------------------------------------------------------------
+
+	# escape_count_per_floor: how many agents came from each floor.
+	var escape_count_per_floor: Dictionary = {}
+	for e in escape_log:
+		var fi: int = e.floor
+		escape_count_per_floor[fi] = escape_count_per_floor.get(fi, 0) + 1
+
+	# clearance_time_per_floor: latest escape time among agents from that floor.
+	var clearance_time_per_floor: Dictionary = {}
+	for e in escape_log:
+		var fi: int = e.floor
+		var cur: float = clearance_time_per_floor.get(fi, 0.0)
+		if e.time > cur:
+			clearance_time_per_floor[fi] = e.time
+
+	# floor_peak_contribution: count escapes per floor within the peak window.
+	var floor_peak_counts: Dictionary = {}
+	for e in escape_log:
+		if e.time >= peak_window_start and e.time <= peak_window_start + window_sec:
+			var fi: int = e.floor
+			floor_peak_counts[fi] = floor_peak_counts.get(fi, 0) + 1
+	var peak_floor: int = -1
+	var peak_floor_count: int = 0
+	for fi in floor_peak_counts:
+		if floor_peak_counts[fi] > peak_floor_count:
+			peak_floor_count = floor_peak_counts[fi]
+			peak_floor = fi
+
+	# ------------------------------------------------------------------
+	# Zero-effort exit choice distribution
+	# ------------------------------------------------------------------
+
+	var exit_use_counts: Dictionary = {}
+	for e in escape_log:
+		var eid: String = e.get("exit_id", "unknown")
+		exit_use_counts[eid] = exit_use_counts.get(eid, 0) + 1
+
+	# ------------------------------------------------------------------
+	# Small-addition agent behaviour metrics
+	# ------------------------------------------------------------------
+
+	# Reaction time mean and standard deviation.
+	var reaction_mean: float = 0.0
+	var reaction_stddev: float = 0.0
+	if not _reaction_times.is_empty():
+		for rt in _reaction_times:
+			reaction_mean += rt
+		reaction_mean /= float(_reaction_times.size())
+		var rt_var: float = 0.0
+		for rt in _reaction_times:
+			var d: float = rt - reaction_mean
+			rt_var += d * d
+		if _reaction_times.size() > 1:
+			rt_var /= float(_reaction_times.size() - 1)
+		reaction_stddev = sqrt(rt_var)
+
+	# Distance travelled: mean and max across escaped agents.
+	var dist_mean: float = 0.0
+	var dist_max: float = 0.0
+	if n > 0:
+		for e in escape_log:
+			var d: float = e.get("distance", 0.0)
+			dist_mean += d
+			if d > dist_max:
+				dist_max = d
+		dist_mean /= float(n)
+
+	# Congestion time: mean seconds each escaped agent spent heavily slowed.
+	var congestion_mean: float = 0.0
+	if n > 0:
+		for e in escape_log:
+			congestion_mean += e.get("congestion_time", 0.0)
+		congestion_mean /= float(n)
+
+	# ------------------------------------------------------------------
+	# Build the stats dict
+	# ------------------------------------------------------------------
+
 	var stats := {
-		"scenario": Scenario.keys()[current_scenario],
-		"total_evacuation_time": elapsed_time,
-		"total_agents": total_agents_spawned,
-		"escaped": agents_escaped,
-		"evacuated_percentage": (float(agents_escaped) / float(total_agents_spawned)) * 100.0 if total_agents_spawned > 0 else 0.0,
+		# --- Original eight thesis table columns ---
+		"scenario":                  Scenario.keys()[current_scenario],
+		"load":                      total_agents_spawned,
+		"escaped_90pct":             agents_escaped,
+		"clearance_time":            clearance_time,
+		"avg_flow":                  avg_flow,
+		"core_flow":                 core_flow,
+		"peak_flow":                 peak_flow,
+		"peak_mean_ratio":           peak_mean_ratio,
+
+		# --- Zero-effort timing ---
+		"first_escape_time":         first_escape_time,
+		"last_escape_time":          last_escape_time,
+		"median_escape_time":        median_escape_time,
+		"escape_time_stddev":        escape_time_stddev,
+
+		# --- Zero-effort per-floor ---
+		"escape_count_per_floor":    escape_count_per_floor,
+		"clearance_time_per_floor":  clearance_time_per_floor,
+		"peak_floor":                peak_floor,
+		"floor_peak_counts":         floor_peak_counts,
+
+		# --- Zero-effort exit distribution ---
+		"exit_use_counts":           exit_use_counts,
+
+		# --- Small-addition agent behaviour ---
+		"reaction_time_mean":        reaction_mean,
+		"reaction_time_stddev":      reaction_stddev,
+		"distance_mean":             dist_mean,
+		"distance_max":              dist_max,
+		"congestion_time_mean":      congestion_mean,
+
+		# --- Stair stats (populated after this dict is emitted, see below) ---
+		"stair_stats":               stair_stats,
+
+		# --- Legacy keys (UI.gd reads these; do not remove) ---
+		"total_evacuation_time":     clearance_time,
+		"total_agents":              total_agents_spawned,
+		"escaped":                   agents_escaped,
+		"evacuated_percentage":      (float(agents_escaped) / float(total_agents_spawned)) * 100.0 if total_agents_spawned > 0 else 0.0,
 	}
+
 	_retire_remaining_agents()
-	_export_logs_to_csv()
+
+	# Emit first so StairConnectors (which listen to simulation_complete) can
+	# call register_stair_stats() before _export_logs_to_csv() reads stair_stats.
 	simulation_complete.emit(stats)
+
+	# Give StairConnectors one deferred frame to push their stats, then export.
+	await get_tree().process_frame
+	stats["stair_stats"] = stair_stats   # refresh with populated data
+	_export_logs_to_csv(stats)
 
 
 ## Anyone still mid-evacuation once the completion threshold is hit is outside
@@ -300,19 +563,107 @@ func _retire_remaining_agents() -> void:
 	agents.clear()
 
 
-func _export_logs_to_csv() -> void:
+# ---------------------------------------------------------------------------
+# CSV export
+# ---------------------------------------------------------------------------
+
+## Writes three CSV files per run to user://logs/:
+##   evac_log_<ts>.csv        - one row per escaped agent (full per-agent data)
+##   evac_summary_<ts>.csv    - one row of scalar summary metrics
+##   evac_stairs_<ts>.csv     - one row per StairConnector
+func _export_logs_to_csv(stats: Dictionary) -> void:
 	var dir_path := "user://logs"
 	DirAccess.make_dir_recursive_absolute(dir_path)
+	var ts: int = Time.get_unix_time_from_system()
 
-	var file_path := "%s/evac_log_%d.csv" % [dir_path, Time.get_unix_time_from_system()]
-	var file := FileAccess.open(file_path, FileAccess.WRITE)
-	if file == null:
-		push_warning("Manager: could not open log file for writing: %s" % file_path)
-		return
+	# --- 1. Per-agent escape log ---
+	var log_path := "%s/evac_log_%d.csv" % [dir_path, ts]
+	var log_file := FileAccess.open(log_path, FileAccess.WRITE)
+	if log_file == null:
+		push_warning("Manager: could not open log file: %s" % log_path)
+	else:
+		log_file.store_line("agent_id,time_seconds,floor,exit_id,distance,congestion_time_s")
+		for e in escape_log:
+			log_file.store_line("%s,%.3f,%d,%s,%.2f,%.3f" % [
+				e.agent_id, e.time, e.floor,
+				e.get("exit_id", ""),
+				e.get("distance", 0.0),
+				e.get("congestion_time", 0.0),
+			])
+		log_file.close()
+		print("Manager: escape log -> ", log_path)
 
-	file.store_line("agent_id,time_seconds,floor")
-	for entry in escape_log:
-		file.store_line("%s,%s,%s" % [entry.agent_id, entry.time, entry.floor])
-	file.close()
+	# --- 2. Scalar summary ---
+	var summary_path := "%s/evac_summary_%d.csv" % [dir_path, ts]
+	var summary_file := FileAccess.open(summary_path, FileAccess.WRITE)
+	if summary_file == null:
+		push_warning("Manager: could not open summary file: %s" % summary_path)
+	else:
+		summary_file.store_line(
+			"scenario,load,escaped_90pct,clearance_time_s," +
+			"avg_flow_per_s,core_flow_per_s,peak_flow_per_s,peak_mean_ratio," +
+			"first_escape_s,last_escape_s,median_escape_s,escape_stddev_s," +
+			"reaction_mean_s,reaction_stddev_s," +
+			"dist_mean,dist_max,congestion_mean_s"
+		)
+		summary_file.store_line("%.s,%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.2f,%.2f,%.3f" % [
+			stats["scenario"],
+			stats["load"],
+			stats["escaped_90pct"],
+			stats["clearance_time"],
+			stats["avg_flow"],
+			stats["core_flow"],
+			stats["peak_flow"],
+			stats["peak_mean_ratio"],
+			stats["first_escape_time"],
+			stats["last_escape_time"],
+			stats["median_escape_time"],
+			stats["escape_time_stddev"],
+			stats["reaction_time_mean"],
+			stats["reaction_time_stddev"],
+			stats["distance_mean"],
+			stats["distance_max"],
+			stats["congestion_time_mean"],
+		])
+		summary_file.close()
+		print("Manager: summary -> ", summary_path)
 
-	print("Manager: evacuation log exported to ", file_path)
+	# --- 3. Per-stair summary ---
+	var stair_path := "%s/evac_stairs_%d.csv" % [dir_path, ts]
+	var stair_file := FileAccess.open(stair_path, FileAccess.WRITE)
+	if stair_file == null:
+		push_warning("Manager: could not open stair file: %s" % stair_path)
+	else:
+		stair_file.store_line(
+			"stair_name,transit_count,peak_queue_length," +
+			"mean_wait_s,max_wait_s,mean_transit_s,base_transit_s,slowdown_factor"
+		)
+		for sname in stair_stats:
+			var s: Dictionary = stair_stats[sname]
+			stair_file.store_line("%s,%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f" % [
+				sname,
+				s.get("transit_count", 0),
+				s.get("peak_queue_length", 0),
+				s.get("mean_wait_time", 0.0),
+				s.get("max_wait_time", 0.0),
+				s.get("mean_transit_time", 0.0),
+				s.get("base_transit_time", 0.0),
+				s.get("slowdown_factor", 1.0),
+			])
+
+		# Also write per-floor and exit-distribution data as trailing sections.
+		stair_file.store_line("")
+		stair_file.store_line("floor,escape_count,clearance_time_s")
+		var ecp: Dictionary = stats.get("escape_count_per_floor", {})
+		var ctp: Dictionary = stats.get("clearance_time_per_floor", {})
+		for fi in ecp:
+			stair_file.store_line("%d,%d,%.3f" % [fi, ecp[fi], ctp.get(fi, 0.0)])
+
+		stair_file.store_line("")
+		stair_file.store_line("exit_id,agent_count")
+		var euc: Dictionary = stats.get("exit_use_counts", {})
+		for eid in euc:
+			stair_file.store_line("%s,%d" % [eid, euc[eid]])
+
+		stair_file.close()
+		print("Manager: stair/floor/exit log -> ", stair_path)

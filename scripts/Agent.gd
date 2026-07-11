@@ -7,6 +7,12 @@ extends Node2D
 ## Movement uses NavigationAgent2D's built-in avoidance (RVO) instead of
 ## physics bodies, since Agent.tscn has no CharacterBody2D - just an Area2D
 ## used purely for exit/stair *detection*.
+##
+## --- Added metrics (small additions) ---
+##   distance_travelled  : total path length walked/run since earthquake.
+##   congestion_frames   : physics frames where density_factor < 0.5 (heavily
+##                         slowed by crowd). Both are reported to Manager via
+##                         agent_escaped() so they appear in the escape log.
 
 enum State { NORMAL, PANIC, IN_TRANSIT, ESCAPED }
 
@@ -30,6 +36,11 @@ var _reaction_complete: bool = false
 var _wander_target: Node2D = null
 var _panic_target_node: Node = null  # Exit or StairConnector currently being pathed to.
 
+# --- Per-agent movement metrics (small additions) ---
+var distance_travelled: float = 0.0   # Accumulated displacement in world-units since spawn.
+var congestion_frames: int = 0        # Frames where density_factor dropped below 0.5.
+var _last_position: Vector2 = Vector2.ZERO
+
 
 func _ready() -> void:
 	add_to_group("agents")
@@ -47,7 +58,10 @@ func _ready() -> void:
 	nav_agent.avoidance_enabled = true
 	nav_agent.velocity_computed.connect(_on_velocity_computed)
 
-	Manager.register_agent(self)
+	_last_position = global_position
+
+	# Pass reaction_time so Manager can aggregate it without a separate lookup.
+	Manager.register_agent(self, reaction_time)
 	Manager.earthquake_started.connect(_on_earthquake_started)
 	if Manager.earthquake_triggered:
 		_on_earthquake_started()
@@ -67,6 +81,10 @@ func _physics_process(delta: float) -> void:
 
 	# Feed the heat map / congestion log (3.6 Data Analysis).
 	Manager.log_position(global_position)
+
+	# Accumulate displacement for distance_travelled metric.
+	distance_travelled += global_position.distance_to(_last_position)
+	_last_position = global_position
 
 
 func _process_normal(delta: float) -> void:
@@ -104,6 +122,10 @@ func _move_with_avoidance(speed: float) -> void:
 	var rho: float = float(Manager.get_local_agent_count(global_position, 16.0, self))
 	var rho_max: float = 8.0
 	var density_factor: float = clamp(1.0 - (rho / rho_max), 0.15, 1.0)
+
+	# Count frames where this agent is meaningfully slowed by crowd pressure.
+	if density_factor < 0.5:
+		congestion_frames += 1
 
 	nav_agent.max_speed = speed
 	var next_pos: Vector2 = nav_agent.get_next_path_position()
