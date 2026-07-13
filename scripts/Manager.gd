@@ -667,3 +667,12 @@ func _export_logs_to_csv(stats: Dictionary) -> void:
 
 		stair_file.close()
 		print("Manager: stair/floor/exit log -> ", stair_path)
+func set_manual_blocks(blocked_nodes: Array) -> void:
+	# Receives a single combined list of blocked nodes from the UI dashboard
+	blocked_exit_names[Scenario.CONSTRAINED] = blocked_nodes
+	blocked_stair_names[Scenario.CONSTRAINED] = blocked_nodes
+	
+func update_occupancy_live(scenario_index: int, new_multiplier: float) -> void:
+	# Receives the specific scenario and the live value from the dashboard's 
+	# occupancy slider, and updates the correct multiplier.
+	occupancy_multiplier[scenario_index] = new_multiplier
