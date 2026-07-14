@@ -32,6 +32,7 @@ signal earthquake_started
 signal agent_escaped_updated(escaped_count: int, total_count: int)
 signal simulation_started(scenario_name: String)
 signal simulation_complete(stats: Dictionary)
+signal metrics_updated(metrics:Dictionary)
 
 enum Scenario { BASELINE, HIGH_DENSITY, CONSTRAINED }
 
@@ -55,6 +56,13 @@ var blocked_stair_names: Dictionary = {
 	Scenario.CONSTRAINED: [],
 }
 
+
+# Routes (exit/stair node names) the user closes at runtime from the dashboard's
+# Constrained-Scenario picker. This is the UI-driven equivalent of hard-coding
+# names into blocked_*_names above. Applied on top of the scenario lists and the
+# editor flags in _apply_scenario_blocks(). Set via set_manual_blocks().
+var manual_blocked_names: Array = []
+
 # Snapshot of each node's is_blocked value as set in the Inspector (captured
 # once, before any simulation run overwrites it). This lets Option B preserve
 # editor-authored "always blocked" flags across restarts.
@@ -74,12 +82,17 @@ var simulation_running: bool = false
 var earthquake_triggered: bool = false
 var elapsed_time: float = 0.0
 
+var _metrics_accum: float = 0.0
+const METRICS_INTERVAL: float = 0.25
+const FLOW_WINDOW: float = 2.0
+var _peak_flow: float = 0.0
+var auto_trigger_earthquake: bool = true
+
 var floors: Dictionary = {}     # floor_index (int) -> Floor node
 var agents: Array = []          # all currently-active Agent nodes
 
 var total_agents_spawned: int = 0
 var agents_escaped: int = 0
-
 # escape_log entries: {agent_id, time, floor, exit_id, distance, congestion_time}
 var escape_log: Array = []
 
@@ -308,7 +321,58 @@ func _spawn_all_agents(scenario: int) -> void:
 		var count: int = int(round(f.base_occupancy * mult))
 		f.spawn_agents(count)
 
+func update_occupancy_live(scenario: int, new_multiplier: float) -> void:
+	# Receives the specific scenario and the live value from the dashboard's 
+	# occupancy slider, and updates the correct multiplier.
+	if not simulation_running:
+		return
+	if scenario != current_scenario:
+		return # Don't touch a scenario that isn't the one currently running.
+	
+	occupancy_multiplier[scenario] = new_multiplier
+	
+	for idx in floors.keys():
+		var f = floors[idx]
+		var target_count: int = int (round(f.base_occupancy * new_multiplier))
+		var current_count: int = _count_agents_on_floor(idx)
+		var diff: int = target_count - current_count
+		
+		if diff > 0:
+			# Need more agents on this floor - spawn the shortfall.
+			f.spawn_agents(diff)
+		elif diff < 0:
+			# Too many agents on this floor - remove the excess (not escapes).
+			_despawn_agents_on_floor (idx,-diff)
+			
 
+func _count_agents_on_floor(floor_index: int) -> int:
+	var count :=0
+	for a in agents:
+		if not is_instance_valid(a):
+			continue
+		if a.current_floor and a.current_floor.floor_index == floor_index:
+			count +=1
+	return count
+
+func _despawn_agents_on_floor(floor_index: int,amount: int) -> void:
+	var removed := 0
+	for a in agents.duplicate():
+		if removed>= amount:
+			break
+		if not is_instance_valid(a):
+			continue
+		if a.current_floor and a.current_floor.floor_index == floor_index:
+			if a.has_method("set_physics_process"):
+				a.set_physics_process(false)
+			var detection: Node = a.get_node_or_null("Area2D")
+			if detection:
+				detection.set_deferred("monitoring",false)
+				detection.set_deferred("monitorable",false)
+			agents.erase(a)
+			a.queue_free()
+			total_agents_spawned -= 1
+			removed += 1
+	
 func _process(delta: float) -> void:
 	if not simulation_running:
 		return
@@ -320,12 +384,90 @@ func _process(delta: float) -> void:
 		live_density[k] *= density_decay
 		if live_density[k] < 0.05:
 			live_density.erase(k)
+	_update_metrics(delta)
 
 
 func trigger_earthquake() -> void:
 	if not earthquake_triggered:
 		earthquake_triggered = true
 		earthquake_started.emit()
+
+func _update_earthquake() -> void:
+	if not earthquake_triggered:
+		earthquake_triggered = true
+		earthquake_started.emit()
+		
+func _update_metrics(_delta: float) -> void:
+	if auto_trigger_earthquake and not earthquake_triggered and elapsed_time >= time_to_earthquake:
+		trigger_earthquake()
+	
+	_metrics_accum += _delta
+	if _metrics_accum < METRICS_INTERVAL:
+		return
+	_metrics_accum = 0.0
+
+	var flow := get_instantaneous_flow(FLOW_WINDOW)
+	_peak_flow = max(_peak_flow,flow)
+	var peak := get_peak_density_cell()   # { "cell": Vector2i, "value": float } or {}
+	
+	var m := {
+			"time": elapsed_time,
+			"escaped": agents_escaped,
+			"total": total_agents_spawned,
+			"remaining": agents.size(),
+			"flow": flow, 
+			"floor_counts": get_live_floor_counts(),
+			"peak_density": peak.get("value",0.0),
+			"peak_cell": peak.get("cell",null),
+	}
+	metrics_updated.emit(m)
+
+func get_instantaneous_flow(window:float) -> float:
+	if window <= 0.0:
+		return 0.0
+	var cutoff := elapsed_time - window
+	var count = 0
+	# escape_log is append-ordered by time, so scan from the back and stop early.
+	for i in range(escape_log.size() - 1,-1, -1):
+		if escape_log[i]["time"] < cutoff:
+			break
+		count += 1
+	return float(count) / window
+
+func get_live_floor_counts() -> Dictionary:
+	var counts: Dictionary = {}
+	for idx in floors.keys():
+		counts[idx] = 0
+	for a in agents:
+		if not is_instance_valid(a):
+			continue
+		if a.current_floor and a.current_floor.floor_index in counts: 
+			counts[a.current_floor.floor_index] += 1
+	return counts
+
+func get_peak_density_cell() -> Dictionary:
+	var best_cell = null
+	var best_val := 0.0
+	for cell in live_density.keys():
+		var v: float = live_density[cell]
+		if v > best_val:
+			best_val = v
+			best_cell = cell
+	if best_cell == null:
+		return{}
+	return {"cell": best_cell,"value": best_val}
+
+func get_top_density_cells(k:int,threshold: float = 3.0) -> Array:
+	var arr:Array = []
+	for cell in live_density.keys():
+		var v: float = live_density[cell]
+		if v >= threshold:
+			arr.append({"cell":cell, "value": v })
+	arr.sort_custom(func (a,b): return a ["value"] > b ["value"])
+	if arr.size() > k:
+		arr.resize(k)
+	return arr
+
 
 
 # ---------------------------------------------------------------------------
@@ -667,12 +809,8 @@ func _export_logs_to_csv(stats: Dictionary) -> void:
 
 		stair_file.close()
 		print("Manager: stair/floor/exit log -> ", stair_path)
-func set_manual_blocks(blocked_nodes: Array) -> void:
+func set_manual_blocks(names: Array) -> void:
 	# Receives a single combined list of blocked nodes from the UI dashboard
-	blocked_exit_names[Scenario.CONSTRAINED] = blocked_nodes
-	blocked_stair_names[Scenario.CONSTRAINED] = blocked_nodes
-	
-func update_occupancy_live(scenario_index: int, new_multiplier: float) -> void:
-	# Receives the specific scenario and the live value from the dashboard's 
-	# occupancy slider, and updates the correct multiplier.
-	occupancy_multiplier[scenario_index] = new_multiplier
+	#blocked_exit_names[Scenario.CONSTRAINED] = blocked_nodes
+	#blocked_stair_names[Scenario.CONSTRAINED] = blocked_nodes
+	manual_blocked_names = names.duplicate()

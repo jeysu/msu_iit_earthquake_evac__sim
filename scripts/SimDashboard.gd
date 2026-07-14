@@ -140,8 +140,8 @@ func _panel(anchor_left: bool, width: float) -> PanelContainer:
 		sb.border_width_right = 1
 	else:
 		sb.border_width_left = 1
-	sb.content_margin_left = 12; sb.content_margin_right = 12
-	sb.content_margin_top = 12; sb.content_margin_bottom = 12
+	sb.content_margin_left = 10; sb.content_margin_right = 10
+	sb.content_margin_top = 10; sb.content_margin_bottom = 10
 	p.add_theme_stylebox_override("panel", sb)
 	add_child(p)
 	return p
@@ -178,7 +178,7 @@ func _build_control_panel() -> void:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	panel.add_child(scroll)
 	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", 8 )
+	vb.add_theme_constant_override("separation", 10 )
 	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(vb)
 
@@ -272,7 +272,7 @@ func _build_control_panel() -> void:
 	_m_time = _metric("Elapsed:  0.0 s", true); vb.add_child(_m_time)
 	_m_escaped = _metric("Escaped:  0 / 0", true); vb.add_child(_m_escaped)
 	_m_pct = _metric("Evacuated:  0.0 %"); vb.add_child(_m_pct)
-	_m_flow = _metric("Flow:  0.0 agents/s"); vb.add_child(_m_flow)
+	_m_flow = _metric("flow:  0.0 agents/s"); vb.add_child(_m_flow)
 	_m_remaining = _metric("Remaining:  0"); vb.add_child(_m_remaining)
 	_m_bottleneck = _metric("Bottleneck:  --")
 	_m_bottleneck.add_theme_color_override("font_color", Color(1.0, 0.55, 0.45 ))
