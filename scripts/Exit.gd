@@ -74,5 +74,19 @@ func _try_evacuate(area: Area2D) -> void:
 
 func set_blocked(value: bool) -> void:
 	is_blocked = value
-	# Visual feedback if this exit gets disabled for a Constrained Scenario run.
-	modulate = Color(0.5, 0.5, 0.5, 0.6) if value else Color(1, 1, 1, 1)
+	queue_redraw()
+
+## Visual marker for a stair closed for a Constrained Scenario run.
+func _draw() -> void:
+	if not is_blocked:
+		return
+	var p := to_local(get_target_position())
+	var s := 20.0
+	var box := Rect2(p - Vector2(s, s), Vector2(s * 2.0, s * 2.0))
+	draw_rect(box, Color(0.90, 0.10, 0.10, 0.25), true)
+	draw_rect(box, Color(1.00, 0.22, 0.22, 0.95), false, 2.0)
+	draw_line(p - Vector2(s, s), p + Vector2(s, s), Color(1.0, 0.28, 0.28, 0.95), 3.0)
+	draw_line(p - Vector2(s, -s), p + Vector2(s, -s), Color(1.0, 0.28, 0.28, 0.95), 3.0)
+	var font: Font = ThemeDB.fallback_font
+	draw_string(font, p + Vector2(-s, -s - 6.0), "STAIR BLOCKED",
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1.0, 0.55, 0.5))

@@ -39,6 +39,10 @@ extends Area2D
 @export var capacity: int = 20               # Max agents physically on the stairs at once.
 @export var is_blocked: bool = false         # "Constrained Scenario" (3.5).
 
+
+
+var _resolved: bool = false   # true only once Manager has applied real scenario logic
+
 var _queue: Array = []           # Waiting agents (not yet in transit).
 var _in_transit_count: int = 0
 
@@ -54,7 +58,8 @@ func _ready() -> void:
 	add_to_group("stairs")
 	area_entered.connect(_on_area_entered)
 	Manager.simulation_complete.connect(_on_simulation_complete)
-
+	z_index = 90
+	z_as_relative = false
 
 ## The StairConnector Area2D node itself always sits at local (0,0) under
 ## "StairConnectors" - the real-world location is entirely encoded in the
@@ -93,15 +98,13 @@ func _on_area_entered(area: Area2D) -> void:
 
 
 func _process_queue() -> void:
+	if is_blocked:
+		return
 	while _in_transit_count < capacity and not _queue.is_empty():
 		var agent = _queue.pop_front()
-		_in_transit_count += 1
-
-		# Record how long this agent waited in the queue before getting on the stairs.
 		var entry_time: float = _queue_entry_times.get(agent.get_instance_id(), Manager.elapsed_time)
 		_queue_entry_times.erase(agent.get_instance_id())
 		_wait_times.append(Manager.elapsed_time - entry_time)
-
 		_transit_agent(agent)
 
 
@@ -145,6 +148,25 @@ func _complete_transit(agent: Node) -> void:
 
 func set_blocked(value: bool) -> void:
 	is_blocked = value
+	_resolved = true
+	queue_redraw()
+
+## Visual marker for a route the user has closed (Constrained Scenario). The
+## Area2D itself is invisible at runtime, so we draw the marker at the child
+## CollisionShape's position (converted into this node's local space).
+func _draw() -> void:
+	if not _resolved or not is_blocked:
+		return
+	var p := to_local(get_target_position())
+	var s := 22.0
+	var box := Rect2(p - Vector2(s, s), Vector2(s * 2.0, s * 2.0))
+	draw_rect(box, Color(0.90, 0.10, 0.10, 0.25), true)          # translucent red fill
+	draw_rect(box, Color(1.00, 0.22, 0.22, 0.95), false, 2.0)     # solid border
+	draw_line(p - Vector2(s, s), p + Vector2(s, s), Color(1.0, 0.28, 0.28, 0.95), 3.0)
+	draw_line(p - Vector2(s, -s), p + Vector2(s, -s), Color(1.0, 0.28, 0.28, 0.95), 3.0)
+	var font: Font = ThemeDB.fallback_font
+	draw_string(font, p + Vector2(-s, -s - 6.0), "STAIR BLOCKED",
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1.0, 0.55, 0.5))
 
 
 ## Called when Manager emits simulation_complete. Bundles this connector's
